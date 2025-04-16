@@ -1,7 +1,7 @@
 import { ServerOptions } from './types/ServerOptions';
 
 export default {
-  secretKey: 'THISISMYSECURETOKEN',
+  secretKey: process.env.SECRET_KEY || 'mmYS3cr3tK3y',
   host: 'http://localhost',
   port: '21465',
   deviceName: 'WppConnect',
@@ -11,14 +11,14 @@ export default {
   maxListeners: 15,
   customUserDataDir: './userDataDir/',
   webhook: {
-    url: null,
+    url: process.env.WEBHOOK_URL || '',
     autoDownload: true,
     uploadS3: false,
-    readMessage: true,
+    readMessage: false,
     allUnreadOnStart: false,
     listenAcks: true,
-    onPresenceChanged: true,
-    onParticipantsChanged: true,
+    onPresenceChanged: false,
+    onParticipantsChanged: false,
     onReactionMessage: true,
     onPollResponse: true,
     onRevokedMessage: true,
