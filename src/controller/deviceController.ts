@@ -2289,7 +2289,7 @@ export async function chatWoot(req: Request, res: Response): Promise<any> {
                 message.content
               );
             }
-            
+
             await client.sendFile(
               `${contato}`,
               base_url,
