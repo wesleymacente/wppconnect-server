@@ -1,7 +1,6 @@
 # Etapa 1: Build com dependências completas
 FROM node:22.16.0-slim AS build
 
-# Pasta de trabalho
 WORKDIR /usr/src/wpp-server
 
 # Atualiza e instala dependências de build
@@ -12,24 +11,23 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copia dependências
+# Copia arquivos do projeto
 COPY package.json yarn.lock ./
 
-# Instala com Yarn
+# Instala as dependências
 RUN yarn install --pure-lockfile
 
-# Copia o restante do projeto e faz o build
+# Copia o restante do projeto e executa o build
 COPY . .
 RUN yarn build && yarn cache clean
 
----
 
 # Etapa 2: Runtime com apenas o necessário
 FROM node:22.16.0-slim
 
 WORKDIR /usr/src/wpp-server
 
-# Instala só os pacotes de runtime necessários para puppeteer e sharp
+# Instala apenas libs necessárias para puppeteer e sharp
 RUN apt-get update && apt-get install -y \
     chromium \
     libvips-dev \
@@ -50,11 +48,10 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
-# Evita download automático do Chromium pelo Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV NODE_ENV=production
 
-# Copia apenas o necessário do build
+# Copia o build da etapa anterior
 COPY --from=build /usr/src/wpp-server/package.json ./
 COPY --from=build /usr/src/wpp-server/dist ./dist
 COPY --from=build /usr/src/wpp-server/node_modules ./node_modules
