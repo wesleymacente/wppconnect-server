@@ -15,8 +15,8 @@ RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main"      >> /etc/apk/repo
 
 # 🧱 Dependências de build + runtime do Sharp (vips/libvips) + libs essenciais
 RUN apk update && apk add --no-cache \
-    vips=8.17.1-r0 \
-    vips-dev=8.17.1-r0 \
+    vips \
+    vips-dev \
     build-base \
     fftw-dev \
     gcc \
@@ -75,7 +75,7 @@ RUN apk add --no-cache \
  && rm -rf /var/cache/apk/*
 
 # 🧩 Garante o runtime libvips também aqui
-RUN apk add --no-cache vips=8.17.1-r0
+RUN apk add --no-cache vips
 
 # 🧹 Limpeza de cache
 RUN yarn cache clean
