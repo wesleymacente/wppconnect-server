@@ -1,5 +1,5 @@
 # ========= BASE =========
-FROM node:22.16.0-alpine AS base
+FROM node:20-alpine AS base
 WORKDIR /usr/src/wpp-server
 
 # ⚙️ Variáveis básicas
@@ -8,7 +8,7 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=21465
 
-# 🧩 Repositórios edge para pegar libvips 8.17.x (sharp precisa dessa versão)
+# 🧩 Repositórios edge para pegar libvips mais recente
 RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main"      >> /etc/apk/repositories && \
     echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && \
     echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing"   >> /etc/apk/repositories
@@ -34,8 +34,8 @@ RUN apk update && apk add --no-cache \
 
 # 📦 Dependências da aplicação
 COPY package.json ./
-RUN yarn install --production --pure-lockfile --platform=linuxmusl --arch=x64 && \
-    yarn add sharp --ignore-engines --platform=linuxmusl --arch=x64 && \
+RUN SHARP_IGNORE_GLOBAL_LIBVIPS=1 yarn install --production --pure-lockfile --network-timeout 1000000 && \
+    SHARP_IGNORE_GLOBAL_LIBVIPS=1 yarn add sharp --ignore-engines --network-timeout 1000000 && \
     yarn cache clean
 
 # ========= BUILD =========
@@ -44,7 +44,7 @@ WORKDIR /usr/src/wpp-server
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 COPY package.json ./
-RUN yarn install --production=false --pure-lockfile && yarn cache clean
+RUN yarn install --production=false --pure-lockfile --network-timeout 1000000 && yarn cache clean
 COPY . .
 RUN yarn build
 
