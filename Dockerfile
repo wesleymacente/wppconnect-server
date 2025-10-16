@@ -1,93 +1,63 @@
-# ========= BASE =========
-FROM node:20-alpine AS base
+# Etapa 1: Build com dependências completas
+FROM node:22.16.0-slim AS build
+
+# Pasta de trabalho
 WORKDIR /usr/src/wpp-server
 
-# ⚙️ Variáveis básicas
-ENV NODE_ENV=production \
-    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    HOST=0.0.0.0 \
-    PORT=21465
-
-# 🧩 Repositórios edge para pegar libvips mais recente
-RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main"      >> /etc/apk/repositories && \
-    echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && \
-    echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing"   >> /etc/apk/repositories
-
-# 🧱 Dependências de build + runtime do Sharp (vips/libvips) + libs essenciais
-RUN apk update && apk add --no-cache \
-    vips \
-    vips-dev \
-    build-base \
-    fftw-dev \
-    gcc \
-    g++ \
-    make \
-    libc6-compat \
-    bash \
+# Atualiza e instala dependências de build
+RUN apt-get update && apt-get install -y \
+    build-essential \
     python3 \
-    pkgconfig \
-    pixman-dev \
-    cairo-dev \
-    pango-dev \
-    glib-dev \
- && rm -rf /var/cache/apk/*
+    libvips-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# 📦 Dependências da aplicação
-COPY package.json ./
-RUN SHARP_IGNORE_GLOBAL_LIBVIPS=1 yarn install --production --pure-lockfile --network-timeout 1000000 && \
-    SHARP_IGNORE_GLOBAL_LIBVIPS=1 yarn add sharp --ignore-engines --network-timeout 1000000 && \
-    yarn cache clean
+# Copia dependências
+COPY package.json yarn.lock ./
 
-# ========= BUILD =========
-FROM base AS build
-WORKDIR /usr/src/wpp-server
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+# Instala com Yarn
+RUN yarn install --pure-lockfile
 
-COPY package.json ./
-RUN yarn install --production=false --pure-lockfile --network-timeout 1000000 && yarn cache clean
+# Copia o restante do projeto e faz o build
 COPY . .
-RUN yarn build
+RUN yarn build && yarn cache clean
 
-# ========= FINAL / RUNTIME =========
-FROM base
+---
+
+# Etapa 2: Runtime com apenas o necessário
+FROM node:22.16.0-slim
+
 WORKDIR /usr/src/wpp-server
 
-# 🟢 Chromium + libs para Puppeteer
-RUN apk add --no-cache \
+# Instala só os pacotes de runtime necessários para puppeteer e sharp
+RUN apt-get update && apt-get install -y \
     chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    libx11 \
-    libxcomposite \
-    libxdamage \
-    libxrandr \
-    libxfixes \
-    libxext \
-    libxau \
-    libxdmcp \
-    libdrm \
-    libxcb \
-    udev \
- && rm -rf /var/cache/apk/*
+    libvips-dev \
+    fonts-liberation \
+    libappindicator3-1 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libgdk-pixbuf2.0-0 \
+    libnspr4 \
+    libnss3 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    xdg-utils \
+    --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
-# 🧩 Garante o runtime libvips também aqui
-RUN apk add --no-cache vips
+# Evita download automático do Chromium pelo Puppeteer
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV NODE_ENV=production
 
-# 🧹 Limpeza de cache
-RUN yarn cache clean
-
-# 📂 Copia código + build
-COPY . .
-COPY --from=build /usr/src/wpp-server/ /usr/src/wpp-server/
-
-# 🔍 Healthcheck (para Coolify/Traefik)
-HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=5 \
-  CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.PORT||21465),r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"
+# Copia apenas o necessário do build
+COPY --from=build /usr/src/wpp-server/package.json ./
+COPY --from=build /usr/src/wpp-server/dist ./dist
+COPY --from=build /usr/src/wpp-server/node_modules ./node_modules
 
 EXPOSE 21465
-
 ENTRYPOINT ["node", "dist/server.js"]
