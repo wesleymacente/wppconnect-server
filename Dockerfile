@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copia arquivos do projeto
-COPY package.json yarn.lock ./
+COPY package.json ./
 
 # Instala as dependências
 RUN yarn install --pure-lockfile
